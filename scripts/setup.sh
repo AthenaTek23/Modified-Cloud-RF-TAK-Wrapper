@@ -15,6 +15,87 @@ color success 92m
 color warning 93m 
 color danger 91m 
 
+check_internet() 
+{
+    # Try multiple methods to check if the computer has an internet conenction
+    if ping -c 1 8.8.8.8 &> /dev/null || \
+       curl --silent --head https://www.google.com &> /dev/null || \
+       wget --quiet --spider https://www.google.com &> /dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+
+# I'm going to check if the computer contains the npm packages needed to run
+# the REST-API server. I want to do this check early because if I tell the user that I need them 
+# to install packages, I don't want them to have gone through the entire TAK Server setup.sh script which
+# takes several minutes before realizing they'll have to do all of that again.
+
+# Check if node_modules directory exists
+if [ ! -d "REST-API-AAR/node_modules" ]; then
+	printf $danger "\nREST-API-AAR/node_modules directory not found. Preparing to install necessary npm packages.\n"
+	return 1
+fi
+
+# Check if package.json exists
+if [ ! -f "REST-API-AAR/package.json" ]; then
+	printf $danger "\nREST-API-AAR/package.json not found. The package.json is necessary to run the REST-API Server.\n"
+	print $warning "Would you like to continue TAK Server setup without the REST-API Server? Without the REST-API Server, AAR clients won't be able to make data requests. (y/n)"
+	read check
+	if [ "$check" == "n" ];
+	then
+		printf "\nExiting now..."
+		exit 0
+	elif [ "$check" == "no" ];
+	then
+		printf "Exiting now..."
+		exit 0
+	fi
+fi
+
+all_npm_dependencies_installed = 1
+cd REST-API-AAR
+
+# Compare package.json with installed modules
+# This uses npm list to check for missing dependencies
+installed_deps=$(npm list --json --depth=0 2>/dev/null)
+required_deps=$(cat package.json | jq -r '.dependencies | keys[]')
+
+for dep in $required_deps; do
+    if ! echo "$installed_deps" | jq -e ".dependencies.\"$dep\"" > /dev/null; then
+        printf $danger "Missing dependency: $dep\n"
+		all_npm_dependencies_installed = 0
+    fi
+done
+
+if ["$all_npm_dependencies_installed" -eq 0]; then
+	printf $warning "Detected earlier that npm package(s) are missing, which are necessary to run the REST-API Server.\n"
+	print $warning "Would you like to install the necessary npm pcakages? Without the REST-API Server, AAR clients won't be able to make data requests. (y/n)"
+	read check
+	if [ "$check" == "y" ] || [ "$check" == "yes" ]; then
+		if check_internet; then
+			npm install
+		else
+			printf $warning "No internet connection detected. An internet connection is needed to install the necessary npm packages.\n"
+			printf $warning "Would you like to continue TAK Server setup without the REST-API-Server? (y\n)"
+
+			read check
+			if [ "$check" == "n" ]; then
+				printf "\nExiting now..."
+				exit 0
+			elif [ "$check" == "no" ]; then
+				printf "Exiting now..."
+				exit 0
+			fi
+		fi
+	fi
+fi
+
+cd ../
+
+
 DOCKER_COMPOSE="docker-compose"
 
 if ! command -v docker-compose
