@@ -7,3 +7,5 @@ originalWAR/
 chatbot/
 server.pref
 manifest.xml
+/node_modules
+admin.p12

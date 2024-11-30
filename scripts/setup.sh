@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Remove the CoreConfig.xml file from the TAK-Server and REST-API-AAR directories
+printf $info "\nRemoving the old CoreConfig.xml frmo TAK-Server and REST-API-AAR directories."
+rm -rf TAK-Server/CoreConfig.xml
+rm -rf REST-API-AAR/CoreConfig.xml
+
 color() {
     STARTCOLOR="\e[$2";
     ENDCOLOR="\e[0m";
@@ -375,6 +380,40 @@ done
 
 cp ./tak/certs/files/$user.p12 .
 
+# Copy the CoreConfig.xml to the TAK-Server and REST-API-AAR directories
+cp ./tak/CoreConfig.xml ./REST-API-AAR/
+cp ./tak/CoreConfig.xml ./TAK-Server/
+
+printf $success "\nCopied the CoreConfig.xml to the REST-API-AAR and TAK-Server directories.\n"
+
+# Install the npm packages to run the API-Server first
+printf $info "\nInstalling node packages for the REST API Server.\n"
+cd REST-API-AAR && npm install && cd ../
+
+# Check if any processes are using port 9000 (REST API uses 9000 for requests)
+PID=$(lsof -t -i :9500)
+
+# Check if a process was found
+if [ -n "$PID" ]; then
+	# Kill the process
+	printf $warning "\nKilling process with PID $PID on port 9500.\n"
+	kill -9 $PID
+else
+  	printf $info "\nNo process found using port 9500.\n"
+fi
+
+# Start the REST API Server
+printf $info "\nStarting the REST API Server.\n"
+node REST-API-AAR/index.js &
+
+# Check if Node threw any error
+if [ $? -ne 0 ]; then
+  printf $danger "REST-API encountered an error. Continuing without it."
+  # You can also log or take other actions here if needed
+else
+  printf $success "\nREST-API started successfully.\n\n"
+fi
+
 ### Post-installation message to user including randomly generated passwrods to use for account and PostgreSQL
 docker container ls
 
@@ -389,4 +428,4 @@ printf $danger "PostgreSQL password: $pgpassword\n\n" # PostgreSQL password rand
 printf $danger "---------PASSWORDS----------------\n\n"
 printf $warning "MAKE A NOTE OF YOUR PASSWORDS. THEY WON'T BE SHOWN AGAIN.\n"
 printf $warning "You have a database listening on TCP 5432 which requires a login. You should still block this port with a firewall\n"
-printf $info "Docker containers should automatically start with the Docker service from now on.\n"
+printf $info "Docker containers should automatically start with the Docker service from now on.\n\n\n"
