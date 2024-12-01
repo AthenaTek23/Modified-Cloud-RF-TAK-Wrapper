@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Remove the CoreConfig.xml file from the TAK-Server and REST-API-AAR directories
-printf $info "\nRemoving the old CoreConfig.xml frmo TAK-Server and REST-API-AAR directories."
+printf $info "\nRemoving the old CoreConfig.xml from TAK-Server and REST-API-AAR directories.\n"
 rm -rf TAK-Server/CoreConfig.xml
 rm -rf REST-API-AAR/CoreConfig.xml
 
@@ -15,16 +15,63 @@ color success 92m
 color warning 93m 
 color danger 91m 
 
-check_internet() 
+# Define the frames for the animation (can be customized)
+frames=("▉      " "▉▉     " "▉▉▉    " "▉▉▉▉   " "▉▉▉▉▉  " "▉▉▉▉▉▉ " "▉▉▉▉▉▉▉")
+
+# Function to display the loading animation
+loading_animation() 
 {
-    # Try multiple methods to check if the computer has an internet conenction
-    if ping -c 1 8.8.8.8 &> /dev/null || \
-       curl --silent --head https://www.google.com &> /dev/null || \
-       wget --quiet --spider https://www.google.com &> /dev/null; then
+    local pid=$1  # PID of the process to wait for
+    local frame_count=${#frames[@]}
+
+    while kill -0 "$pid" 2>/dev/null; do
+        for frame in "${frames[@]}"; do
+            echo -ne "\r$frame"
+            sleep 0.2  # Adjust the speed of animation
+        done
+    done
+}
+
+# Call the function with a duration of 5 seconds
+loading_animation 5
+
+
+check_internet() {
+    # Try to ping 8.8.8.8 (Google DNS) or a reliable host
+    if timeout 3 ping -c 1 8.8.8.8 &> /dev/null; then
         return 0
     else
         return 1
     fi
+}
+
+install_npm_packages()
+{
+	# printf $warning "Detected earlier that npm package(s) are missing, which are necessary to run the REST-API Server.\n"
+	printf $warning "Would you like to install the necessary npm pcakages? Without the REST-API Server, AAR clients won't be able to make data requests. (y/n)"
+	read check
+	if [ "$check" == "y" ] || [ "$check" == "yes" ]; then
+		printf "\n"
+		if check_internet; then
+			npm install
+		else
+			printf $warning "No internet connection detected. An internet connection is needed to install the necessary npm packages.\n"
+			printf $warning "Would you like to continue TAK Server setup without the REST-API-Server? (y/n)"
+
+			read check
+			if [ "$check" == "n" ]; then
+				printf "\nExiting now...\n\n"
+				exit 0
+			elif [ "$check" == "no" ]; then
+				printf "Exiting now...\n\n"
+				exit 0
+			fi
+		fi
+	
+	else
+		printf $warning "\nContinuing without REST-API Server.\n"
+
+	fi
 }
 
 
@@ -33,67 +80,46 @@ check_internet()
 # to install packages, I don't want them to have gone through the entire TAK Server setup.sh script which
 # takes several minutes before realizing they'll have to do all of that again.
 
-# Check if node_modules directory exists
-if [ ! -d "REST-API-AAR/node_modules" ]; then
-	printf $danger "\nREST-API-AAR/node_modules directory not found. Preparing to install necessary npm packages.\n"
-	return 1
-fi
-
 # Check if package.json exists
 if [ ! -f "REST-API-AAR/package.json" ]; then
 	printf $danger "\nREST-API-AAR/package.json not found. The package.json is necessary to run the REST-API Server.\n"
-	print $warning "Would you like to continue TAK Server setup without the REST-API Server? Without the REST-API Server, AAR clients won't be able to make data requests. (y/n)"
+	print $warning "Would you like to continue TAK Server setup without the REST-API Server? Without the REST-API Server, AAR clients won't be able to import training data from the TAK Server. (y/n)"
+	
 	read check
 	if [ "$check" == "n" ];
 	then
-		printf "\nExiting now..."
+		printf "\nExiting now...\n\n"
 		exit 0
 	elif [ "$check" == "no" ];
 	then
-		printf "Exiting now..."
+		printf "Exiting now...\n\n"
 		exit 0
 	fi
 fi
 
-all_npm_dependencies_installed = 1
-cd REST-API-AAR
+printf "\n"
 
-# Compare package.json with installed modules
-# This uses npm list to check for missing dependencies
-installed_deps=$(npm list --json --depth=0 2>/dev/null)
-required_deps=$(cat package.json | jq -r '.dependencies | keys[]')
+# Check if node_modules directory exists
+if [ ! -d "REST-API-AAR/node_modules" ]; then
+    printf $danger "\nREST-API-AAR/node_modules directory not found. Preparing to install necessary npm packages.\n"
 
-for dep in $required_deps; do
-    if ! echo "$installed_deps" | jq -e ".dependencies.\"$dep\"" > /dev/null; then
-        printf $danger "Missing dependency: $dep\n"
-		all_npm_dependencies_installed = 0
-    fi
-done
+	cd REST-API-AAR
+	install_npm_packages
+    cd ../        
 
-if ["$all_npm_dependencies_installed" -eq 0]; then
-	printf $warning "Detected earlier that npm package(s) are missing, which are necessary to run the REST-API Server.\n"
-	print $warning "Would you like to install the necessary npm pcakages? Without the REST-API Server, AAR clients won't be able to make data requests. (y/n)"
-	read check
-	if [ "$check" == "y" ] || [ "$check" == "yes" ]; then
-		if check_internet; then
-			npm install
-		else
-			printf $warning "No internet connection detected. An internet connection is needed to install the necessary npm packages.\n"
-			printf $warning "Would you like to continue TAK Server setup without the REST-API-Server? (y\n)"
+else
+	ALL_NPM_PACKAGES_INSTALLED=true
+	cd REST-API-AAR
 
-			read check
-			if [ "$check" == "n" ]; then
-				printf "\nExiting now..."
-				exit 0
-			elif [ "$check" == "no" ]; then
-				printf "Exiting now..."
-				exit 0
-			fi
-		fi
+	# Version 1: Using a direct npm check
+	if npm list --json --depth=0 2>/dev/null | grep -q "missing:"; then
+		ALL_NPM_PACKAGES_INSTALLED=false
+		printf $danger "Missing packages detected.\n"
+		install_npm_packages
 	fi
 fi
 
-cd ../
+printf "\n"
 
 
 DOCKER_COMPOSE="docker-compose"
