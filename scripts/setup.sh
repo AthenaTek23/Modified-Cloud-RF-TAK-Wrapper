@@ -117,6 +117,8 @@ else
 		printf $danger "Missing packages detected.\n"
 		install_npm_packages
 	fi
+
+	cd ../
 fi
 
 printf "\n"
@@ -492,10 +494,6 @@ cp ./tak/CoreConfig.xml ./REST-API-AAR/
 cp ./tak/CoreConfig.xml ./TAK-Server/
 
 printf $success "\nCopied the CoreConfig.xml to the REST-API-AAR and TAK-Server directories.\n"
-
-# Install the npm packages to run the API-Server first
-printf $info "\nInstalling node packages for the REST API Server.\n"
-cd REST-API-AAR && npm install && cd ../
 
 # Check if any processes are using port 9000 (REST API uses 9000 for requests)
 PID=$(lsof -t -i :9500)
