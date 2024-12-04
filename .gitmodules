@@ -1,6 +1,8 @@
 [submodule "REST-API-AAR"]
 	path = REST-API-AAR
 	url = https://github.com/AthenaTek23/REST-API-AAR.git
+	branch = main
 [submodule "TAK-Server"]
 	path = TAK-Server
 	url = https://github.com/AthenaTek23/TAK-Server.git
+	branch = main
