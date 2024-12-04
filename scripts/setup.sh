@@ -15,27 +15,6 @@ color success 92m
 color warning 93m 
 color danger 91m 
 
-# Define the frames for the animation (can be customized)
-frames=("▉      " "▉▉     " "▉▉▉    " "▉▉▉▉   " "▉▉▉▉▉  " "▉▉▉▉▉▉ " "▉▉▉▉▉▉▉")
-
-# Function to display the loading animation
-loading_animation() 
-{
-    local pid=$1  # PID of the process to wait for
-    local frame_count=${#frames[@]}
-
-    while kill -0 "$pid" 2>/dev/null; do
-        for frame in "${frames[@]}"; do
-            echo -ne "\r$frame"
-            sleep 0.2  # Adjust the speed of animation
-        done
-    done
-}
-
-# Call the function with a duration of 5 seconds
-loading_animation 5
-
-
 check_internet() {
     # Try to ping 8.8.8.8 (Google DNS) or a reliable host
     if timeout 3 ping -c 1 8.8.8.8 &> /dev/null; then
